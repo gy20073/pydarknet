@@ -119,7 +119,7 @@ cdef class Detector:
         for i in range(num):
             logit = np.asarray(pd_views[i])
             logit = np.copy(logit)
-            logit = np.reshape(logit, (batch[i], w[i], h[i], n[i]*classp5[i]))
+            logit = np.reshape(logit, (batch[i], n[i], classp5[i], h[i], w[i]))
             outputs.append(logit)
         return outputs
 
