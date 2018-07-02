@@ -101,13 +101,19 @@ cdef class Detector:
 
     def get_logits(self):
         cdef int batch[3]
+        cdef int* pbatch = batch
         cdef int w[3]
+        cdef int* pw = w
         cdef int h[3]
+        cdef int* ph = h
         cdef int n[3]
+        cdef int* pn = n
         cdef int classp5[3]
+        cdef int* pclassp5 = classp5
         cdef float* data[3]
-        num=get_yolo_logits(self.net, batch, w, h, n, classp5, data)
-
+        cdef float** pdata = data
+        num=get_yolo_logits(self.net, pbatch, pw, ph, pn, pclassp5, pdata)
+        
         assert(num<=3)
         cdef float[:] pd_view_0 = <float[:batch[0]*w[0]*h[0]*n[0]*classp5[0]]>data[0]
         cdef float[:] pd_view_1 = <float[:batch[1]*w[1]*h[1]*n[1]*classp5[1]]>data[1]

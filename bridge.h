@@ -18,5 +18,3 @@ extern "C" {
     using namespace cv;
     image get_darknet_image(const Mat &input);
 #endif
-
-int get_yolo_logits(network *net, int *batch, int *w, int *h, int *n, int *classp5, float** data);
