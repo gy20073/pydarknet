@@ -60,10 +60,14 @@ cdef class Image:
 cdef class Detector:
     cdef network* net
     cdef metadata meta
+    cdef int im_w
+    cdef int im_h
 
     def __cinit__(self, char* config, char* weights, int p, char* meta):
         self.net = load_network(config, weights, p)
         self.meta = get_metadata(meta)
+        self.im_w = -1
+        self.im_h = -1
 
     # Code adapted from https://github.com/pjreddie/darknet/blob/master/python/darknet.py
 
@@ -75,12 +79,15 @@ cdef class Detector:
         res = sorted(res, key=lambda x: -x[1])
         return res
 
-    def detect(self, Image image, float thresh=.5, float hier_thresh=.5, float nms=.45):
+    def forward(self, Image image):
+        network_predict_image(self.net, image.img)
+        self.im_w = image.img.w
+        self.im_h = image.img.h
+
+    def get_boxes(self, float thresh=.5, float hier_thresh=.5, float nms=.45):
         cdef int num = 0
         cdef int* pnum = &num
-        network_predict_image(self.net, image.img)
-        logits = self.get_logits()
-        dets = get_network_boxes(self.net, image.img.w, image.img.h, thresh, hier_thresh, <int*>0, 0, pnum)
+        dets = get_network_boxes(self.net, self.im_w, self.im_h, thresh, hier_thresh, <int*>0, 0, pnum)
 
         num = pnum[0]
         if (nms > 0):
@@ -95,7 +102,7 @@ cdef class Detector:
         res = sorted(res, key=lambda x: -x[1])
 
         free_detections(dets, num)
-        return res, logits
+        return res
 
     # End of adapted code block
 
@@ -113,7 +120,7 @@ cdef class Detector:
         cdef float* data[3]
         cdef float** pdata = data
         num=get_yolo_logits(self.net, pbatch, pw, ph, pn, pclassp5, pdata)
-        
+
         assert(num<=3)
         cdef float[:] pd_view_0 = <float[:batch[0]*w[0]*h[0]*n[0]*classp5[0]]>data[0]
         cdef float[:] pd_view_1 = <float[:batch[1]*w[1]*h[1]*n[1]*classp5[1]]>data[1]
