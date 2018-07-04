@@ -59,5 +59,7 @@ cdef extern from "bridge.h":
     void free_image(image img)
 
     detection *get_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num)
+    detection *get_network_boxes_ibatch(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num, int ibatch)
 
     int get_yolo_logits(network *net, int *batch, int *w, int *h, int *n, int *classp5, float** data)
+    float *network_predict_image_batch(network *net, image im, int batch_size)

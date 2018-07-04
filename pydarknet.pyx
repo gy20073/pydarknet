@@ -11,48 +11,35 @@ cdef class Image:
     cdef image img;
     def __cinit__(self, np.ndarray ary):
         IF USE_CV == 1:
-            # Code adapted from https://github.com/solivr/cython_opencvMat
-            assert ary.ndim==3 and ary.shape[2]==3, "ASSERT::3channel RGB only!!"
-
-            cdef np.ndarray[np.uint8_t, ndim=3, mode ='c'] np_buff = np.ascontiguousarray(ary, dtype=np.uint8)
-            cdef unsigned int* im_buff = <unsigned int*> np_buff.data
-            cdef int r = ary.shape[0]
-            cdef int c = ary.shape[1]
-            cdef Mat m
-            m.create(r, c, CV_8UC3)
-            memcpy(m.data, im_buff, r*c*3)
-            # End of adapted code block
-
-            self.img = get_darknet_image(m)
-            m.release()
+            assert False, "did not compile with opencv, thus didn't change this part of code to enable batching"
         ELSE:
              # Code adapted from https://github.com/solivr/cython_opencvMat
-            assert ary.ndim==3 and ary.shape[2]==3, "ASSERT::3channel RGB only!!"
+             # expect input of size B*H*W*C
+            assert ary.ndim==4 and ary.shape[3]==3, "ASSERT::3channel RGB only!!"
 
             # Re-arrange to suite Darknet input format
-            ary = ary.transpose(2, 0, 1)
+            ary = ary.transpose(0, 3, 1, 2)
+            # expect size batch*C*H*W
 
             # RGB to BGR
-            ary = ary[::-1,:,:]
+            ary = ary[:, ::-1, :, :]
 
             # 0..1 Range
             ary = ary/255.0
 
             # To c_array
-            cdef np.ndarray[np.float32_t, ndim=3, mode ='c'] np_buff = np.ascontiguousarray(ary, dtype=np.float32)
-            cdef int c = ary.shape[0]
-            cdef int h = ary.shape[1]
-            cdef int w = ary.shape[2]
+            cdef np.ndarray[np.float32_t, ndim=4, mode ='c'] np_buff = np.ascontiguousarray(ary, dtype=np.float32)
+            cdef int nbatch = ary.shape[0]
+            cdef int c = ary.shape[1]
+            cdef int h = ary.shape[2]
+            cdef int w = ary.shape[3]
 
             # Copy to Darknet image
             self.img.w = w
             self.img.h = h
             self.img.c = c
-            self.img.data = <float*>malloc(h*w*c*4)
-            memcpy(self.img.data, np_buff.data, h*w*c*4)
-
-    def show_image(self, char* title):
-        show_image(self.img, title)
+            self.img.data = <float*>malloc(nbatch*h*w*c*4)
+            memcpy(self.img.data, np_buff.data, nbatch*h*w*c*4)
 
     def __dealloc__(self):
         free_image(self.img)
@@ -71,23 +58,15 @@ cdef class Detector:
 
     # Code adapted from https://github.com/pjreddie/darknet/blob/master/python/darknet.py
 
-    def classify(self, Image img):
-        out = network_predict_image(self.net, img.img)
-        res = []
-        for i in range(self.meta.classes):
-            res.append((self.meta.names[i], out[i]))
-        res = sorted(res, key=lambda x: -x[1])
-        return res
-
-    def forward(self, Image image):
-        network_predict_image(self.net, image.img)
+    def forward(self, Image image, int batch_size):
+        network_predict_image_batch(self.net, image.img, batch_size)
         self.im_w = image.img.w
         self.im_h = image.img.h
 
-    def get_boxes(self, float thresh=.5, float hier_thresh=.5, float nms=.45):
+    def get_boxes(self, int ibatch, float thresh=.5, float hier_thresh=.5, float nms=.45):
         cdef int num = 0
         cdef int* pnum = &num
-        dets = get_network_boxes(self.net, self.im_w, self.im_h, thresh, hier_thresh, <int*>0, 0, pnum)
+        dets = get_network_boxes_ibatch(self.net, self.im_w, self.im_h, thresh, hier_thresh, <int*>0, 0, pnum, ibatch)
 
         num = pnum[0]
         if (nms > 0):
