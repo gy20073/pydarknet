@@ -1,6 +1,8 @@
 # distutils: language = "c++"
 
+import cython
 import numpy as np
+cimport numpy as np
 
 from libc.string cimport memcpy
 from libc.stdlib cimport malloc
@@ -9,40 +11,20 @@ is_compiled_with_opencv = bool(USE_CV)
 
 cdef class Image:
     cdef image img;
-    def __cinit__(self, np.ndarray ary):
-        IF USE_CV == 1:
-            assert False, "did not compile with opencv, thus didn't change this part of code to enable batching"
-        ELSE:
-             # Code adapted from https://github.com/solivr/cython_opencvMat
-             # expect input of size B*H*W*C
-            assert ary.ndim==4 and ary.shape[3]==3, "ASSERT::3channel RGB only!!"
 
-            # Re-arrange to suite Darknet input format
-            ary = ary.transpose(0, 3, 1, 2)
-            # expect size batch*C*H*W
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def __cinit__(self, np.ndarray[np.float32_t, ndim=4, mode="c"] ary not None):
+        cdef int nbatch = ary.shape[0]
+        cdef int c = ary.shape[1]
+        cdef int h = ary.shape[2]
+        cdef int w = ary.shape[3]
 
-            # RGB to BGR
-            ary = ary[:, ::-1, :, :]
-
-            # 0..1 Range
-            ary = ary/255.0
-
-            # To c_array
-            cdef np.ndarray[np.float32_t, ndim=4, mode ='c'] np_buff = np.ascontiguousarray(ary, dtype=np.float32)
-            cdef int nbatch = ary.shape[0]
-            cdef int c = ary.shape[1]
-            cdef int h = ary.shape[2]
-            cdef int w = ary.shape[3]
-
-            # Copy to Darknet image
-            self.img.w = w
-            self.img.h = h
-            self.img.c = c
-            self.img.data = <float*>malloc(nbatch*h*w*c*4)
-            memcpy(self.img.data, np_buff.data, nbatch*h*w*c*4)
-
-    def __dealloc__(self):
-        free_image(self.img)
+        # Copy to Darknet image
+        self.img.w = w
+        self.img.h = h
+        self.img.c = c
+        self.img.data = &ary[0,0,0,0]
 
 cdef class Detector:
     cdef network* net
