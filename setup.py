@@ -78,8 +78,8 @@ include_paths = [np.get_include(), os.path.join(darknet_dir,"include"), os.path.
 libraries = ["darknet","m", "pthread"]
 library_paths = [".", "./__libdarknet"]
 
-extra_compiler_flags = [ get_cflags("python3")]
-extra_linker_flags = [get_libs("python3")]
+extra_compiler_flags = [ get_cflags("python")]
+extra_linker_flags = [get_libs("python")]
 
 cython_compile_directives = {}
 macros = []
@@ -215,7 +215,7 @@ setup(
       'requests',
       'numpy'
   ],
-  python_requires='>=3.5',
+  python_requires='>=2.7',
   author='Madhawa Vidanapathirana',
   author_email='madhawavidanapathirana@gmail.com',
   url="https://github.com/madhawav/YOLO3-4-Py",

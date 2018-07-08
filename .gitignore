@@ -20,3 +20,5 @@ pydarknet.html
 *.o
 *.so
 .env
+*.pyc
+.eggs
